@@ -6,7 +6,6 @@ import fetch from 'node-fetch';
 import type { OpenAPIObject, OperationObject, SchemaObject } from 'openapi3-ts';
 import converter from 'swagger2openapi';
 import Log from './log';
-import { mockGenerator } from './mockGenerator';
 import { ServiceGenerator } from './serviceGenerator';
 import type { APIDataType } from './serviceGenerator';
 
@@ -58,7 +57,7 @@ export type GenerateServiceProps = {
     /** 自定义类型名称 */
     customTypeName?: (data: APIDataType) => string;
     /** 自定义 options 默认值 */
-    customOptionsDefaultValue?: (data: OperationObject) =>  Record<string, any> | undefined;
+    customOptionsDefaultValue?: (data: OperationObject) => Record<string, any> | undefined;
     /** 自定义类名 */
     customClassName?: (tagName: string) => string;
 
@@ -213,9 +212,9 @@ export const generateService = async ({
   serviceGenerator.genFile();
 
   if (mockFolder) {
-    await mockGenerator({
-      openAPI,
-      mockFolder: mockFolder || './mocks/',
-    });
+    // await mockGenerator({
+    //   openAPI,
+    //   mockFolder: mockFolder || './mocks/',
+    // });
   }
 };

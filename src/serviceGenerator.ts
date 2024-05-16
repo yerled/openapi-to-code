@@ -316,8 +316,7 @@ class ServiceGenerator {
       ...config,
     };
     if (this.config.hook?.afterOpenApiDataInited) {
-      this.openAPIData =
-        this.config.hook.afterOpenApiDataInited(openAPIData) || openAPIData;
+      this.openAPIData = this.config.hook.afterOpenApiDataInited(openAPIData) || openAPIData;
     } else {
       this.openAPIData = openAPIData;
     }
@@ -354,7 +353,6 @@ class ServiceGenerator {
         });
       });
     });
-    
   }
 
   public genFile() {
@@ -478,9 +476,8 @@ class ServiceGenerator {
               );
               if (newApi.extensions && newApi.extensions['x-antTech-description']) {
                 const { extensions } = newApi;
-                const { apiName, antTechVersion, productCode, antTechApiName } = extensions[
-                  'x-antTech-description'
-                ];
+                const { apiName, antTechVersion, productCode, antTechApiName } =
+                  extensions['x-antTech-description'];
                 formattedPath = antTechApiName || formattedPath;
                 this.mappings.push({
                   antTechApi: formattedPath,

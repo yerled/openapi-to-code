@@ -42,3 +42,6 @@ servers
 mocks
 test/file-servers/
 test/servers-allof/
+
+src-temp/*
+!src-temp/gen.ts
