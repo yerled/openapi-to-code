@@ -44,4 +44,4 @@ test/file-servers/
 test/servers-allof/
 
 src-temp/*
-!src-temp/gen.ts
+!src-temp/openapi.ts
