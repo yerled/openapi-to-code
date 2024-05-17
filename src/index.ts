@@ -3,22 +3,11 @@
 import http from 'http';
 import https from 'https';
 import fetch from 'node-fetch';
-import type { OpenAPIObject, OperationObject, SchemaObject } from 'openapi3-ts';
 import converter from 'swagger2openapi';
 import Log from './log';
 import { ServiceGenerator, ServiceGeneratorConfig } from './generator/services';
 import { OpenapiDataParser } from './parser';
 import { IGeneratorConfig } from './generator/_base';
-
-const getImportStatement = (requestLibPath: string) => {
-  if (requestLibPath && requestLibPath.startsWith('import')) {
-    return requestLibPath;
-  }
-  if (requestLibPath) {
-    return `import request from '${requestLibPath}'`;
-  }
-  return `import { request } from "umi"`;
-};
 
 export type GenerateCodeOptions = IGeneratorConfig & {
   schemaPath: string;
@@ -75,7 +64,6 @@ const getOpenAPIConfig = async (schemaPath: string) => {
 // 从 appName 生成 service 数据
 export const generateCode = async ({ schemaPath, basePath, service }: GenerateCodeOptions) => {
   const openAPI = await getOpenAPIConfig(schemaPath);
-  // const requestImportStatement = getImportStatement(requestLibPath);
 
   const parser = new OpenapiDataParser(openAPI);
 

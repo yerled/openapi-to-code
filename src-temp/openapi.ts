@@ -9,7 +9,10 @@ generateCode({
   //   '../../../yuanguanglong/popmart-land/apps/admin/config/server-openapi.json',
   // ),
   schemaPath: 'http://localhost:3001/api-json',
-  basePath: './src-temp/server',
+  basePath: './src-temp/openapi',
+  service: {
+    controllerHeader: "import { request, RequestOptions } from '@umijs/max';",
+  },
   // enumStyle: 'enum',
   // serversPath: path.resolve(__dirname, './services'),
   // projectName: 'server-openapi',

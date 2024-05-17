@@ -1,22 +1,26 @@
 import { OpenAPIObject } from 'openapi3-ts';
-import { OpenapiDataParser } from '../parser';
+import { ModuleItem, OpenapiDataParser } from '../parser';
 import Handlebars from 'handlebars';
 import { writeFile } from '../util';
+import './_handlebars';
 
 export interface IGeneratorConfig {
   basePath?: string;
   namespace?: string;
 }
 
+const DEFAULT_BASE_PATH = './src/openapi';
+const DEFAULT_NAMESPACE = 'API';
+
 export class BaseGenerator {
   protected config: IGeneratorConfig;
 
-  protected data?: ReturnType<OpenapiDataParser['GetResult']>;
+  protected data?: ModuleItem[];
 
   constructor(parser: OpenapiDataParser, config: IGeneratorConfig) {
     this.data = parser.GetResult();
     this.config = Object.assign(
-      { basePath: './src/server', namespace: 'API' } as IGeneratorConfig,
+      { basePath: DEFAULT_BASE_PATH, namespace: DEFAULT_NAMESPACE } as IGeneratorConfig,
       config,
     );
   }

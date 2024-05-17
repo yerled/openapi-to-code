@@ -18,7 +18,6 @@ import { join } from 'path';
 import ReservedDict from 'reserved-words';
 import rimraf from 'rimraf';
 import pinyin from 'tiny-pinyin';
-import type { GenerateServiceProps } from './index';
 import Log from './log';
 import { stripDot, writeFile } from './util';
 
