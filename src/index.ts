@@ -62,15 +62,15 @@ const getOpenAPIConfig = async (schemaPath: string) => {
 };
 
 // 从 appName 生成 service 数据
-export const generateCode = async ({ schemaPath, basePath, service }: GenerateCodeOptions) => {
-  const openAPI = await getOpenAPIConfig(schemaPath);
+export const generateCode = async ({ service, ...rest }: GenerateCodeOptions) => {
+  const openAPI = await getOpenAPIConfig(rest.schemaPath);
 
-  const parser = new OpenapiDataParser(openAPI);
+  const parser = new OpenapiDataParser(openAPI, { ...rest });
 
   if (service !== false) {
     const serviceGenerator = new ServiceGenerator(
       parser,
-      Object.assign({ basePath }, service ?? {}),
+      Object.assign({ ...rest }, service ?? {}),
     );
     serviceGenerator.Generate();
   }

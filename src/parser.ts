@@ -1,4 +1,5 @@
 import {
+  ComponentsObject,
   ContentObject,
   OpenAPIObject,
   OperationObject,
@@ -14,32 +15,59 @@ import { camelCase, isBoolean, isArray } from 'lodash';
 import ReservedDict from 'reserved-words';
 import pinyin from 'tiny-pinyin';
 import Log from './log';
+import _ from 'lodash';
 
+export type ParserResult = {
+  modules: ModuleItem[];
+  types: TypeItem[];
+};
+export type TypeItem = {
+  name: string;
+  props: APIProperty[];
+};
+export type ParserOptions = { namespace?: string };
 export type ModuleItem = {
   name: string;
-  description: string;
+  desc: string;
   routes: RouteItem[];
 };
 export type RouteItem = {
   url: string;
   method: string;
-  params: any;
+  name: string;
+  fullName: string;
+  desc: string;
+  params: RouteParams;
   body: any;
   response: any;
-  description: string;
+};
+export type RouteParams = RouteParamProperty[];
+export type RouteParamProperty = APIProperty & { in: 'query' | 'path' };
+export type RouteBody = {};
+export type RouteResponse = {};
+export type APIProperty = {
+  name: string;
+  desc: string;
+  type: string;
+  required: boolean;
 };
 
 const validMethods = ['get', 'put', 'post', 'delete', 'patch'];
+const DEFAULT_OPTIONS: ParserOptions = {
+  namespace: 'API',
+};
 
 /**
  * OpenAPI 数据解析器
  */
 export class OpenapiDataParser {
   private _openAPIData: OpenAPIObject;
-  private _result: ModuleItem[];
+  private _result: ParserResult;
+  private _options: ParserOptions;
 
-  constructor(openapiData: OpenAPIObject) {
+  constructor(openapiData: OpenAPIObject, options?: ParserOptions) {
     this._openAPIData = openapiData;
+    this._options = _.merge(DEFAULT_OPTIONS, options);
     this._parse();
   }
 
@@ -54,11 +82,10 @@ export class OpenapiDataParser {
     tags.forEach((tag: TagObject) => {
       moduleMap[tag.name] = {
         name: tag.name,
-        description: tag.description,
+        desc: tag.description,
         routes: [],
       };
     });
-
     Object.entries(paths).forEach(([path, pathConfig]) => {
       validMethods.forEach((method) => {
         const operation = pathConfig[method] as OperationObject;
@@ -74,48 +101,65 @@ export class OpenapiDataParser {
         moduleMap[tag].routes.push({
           url: path,
           method,
+          name: operation.operationId?.split('_').pop(),
+          fullName: camelCase(operation.operationId),
+          desc: operation.description ?? operation.summary,
           params: this._parseParams(operation.parameters),
           body: this._parseBody(operation.requestBody),
           response: this._parseResponse(operation.responses),
-          description: operation.description ?? operation.summary,
         } as RouteItem);
       });
     });
 
-    this._result = Object.values(moduleMap);
+    const defines = components?.schemas || {};
+    const types =
+      components &&
+      components.schemas &&
+      Object.keys(components.schemas).map((typeName) => {
+        const result = this._resolveObject(defines[typeName]);
+
+        const getDefinesType = () => {
+          if (result.type) {
+            return (defines[typeName] as SchemaObject).type === 'object' || result.type;
+          }
+          return 'Record<string, any>';
+        };
+        return {
+          name: resolveTypeName(typeName),
+          props: result.props || [],
+        } as TypeItem;
+      });
+
+    this._result = {
+      modules: Object.values(moduleMap),
+      types,
+    };
   }
 
   private _parseParams(parameters: (ParameterObject | ReferenceObject)[]) {
-    const templateParams: Record<string, ParameterObject[]> = {};
+    const routeParams: RouteParams = [];
 
     if (parameters && parameters.length) {
-      ['query', 'path', 'cookie' /* , 'file' */].forEach((source) => {
-        // Possible values are "query", "header", "path" or "cookie". (https://swagger.io/specification/)
-        const params = parameters
-          .map((p) => this._resolveRefObject(p))
-          .filter((p: ParameterObject) => p.in === source)
-          .map((p) => {
-            const isDirectObject = ((p.schema || {}).type || p.type) === 'object';
-            const refList = ((p.schema || {}).$ref || p.$ref || '').split('/');
-            const ref = refList[refList.length - 1];
-            const deRefObj = (Object.entries(
-              (this._openAPIData.components && this._openAPIData.components.schemas) || {},
-            ).find(([k]) => k === ref) || []) as any;
-            const isRefObject = (deRefObj[1] || {}).type === 'object';
-            return {
-              ...p,
-              isObject: isDirectObject || isRefObject,
-              type: this._getType(p.schema || DEFAULT_SCHEMA),
-            };
-          });
-
-        if (params.length) {
-          templateParams[source] = params;
-        }
+      parameters.forEach((property) => {
+        const p = this._resolveRefObject(property);
+        const isDirectObject = (((p.schema || {}) as SchemaObject).type || p.type) === 'object';
+        const refList = ((p.schema || {}).$ref || p.$ref || '').split('/');
+        const ref = refList[refList.length - 1];
+        const deRefObj = (Object.entries(
+          (this._openAPIData.components && this._openAPIData.components.schemas) || {},
+        ).find(([k]) => k === ref) || []) as any;
+        const isRefObject = (deRefObj[1] || {}).type === 'object';
+        routeParams.push({
+          name: p.name,
+          desc: p.description,
+          required: p.required,
+          type: this._getType(p.schema || DEFAULT_SCHEMA),
+          in: p.in,
+        });
       });
     }
 
-    return templateParams;
+    return routeParams;
   }
 
   private _parseBody(requestBody: RequestBodyObject | ReferenceObject) {
@@ -251,7 +295,7 @@ export class OpenapiDataParser {
 
   private _resolveProperties(schemaObject: SchemaObject) {
     return {
-      props: [this._getProps(schemaObject)],
+      props: this._getProps(schemaObject),
     };
   }
 
@@ -318,150 +362,148 @@ export class OpenapiDataParser {
           // 剔除属性键值中的特殊符号，因为函数入参变量存在特殊符号会导致解析文件失败
           propName = propName.replace(/[\[|\]]/g, '');
           return {
-            ...schema,
             name: propName,
             type: this._getType(schema),
             desc: [schema.title, schema.description].filter((s) => s).join(' '),
             // 如果没有 required 信息，默认全部是非必填
             required: requiredPropKeys ? requiredPropKeys.some((key) => key === propName) : false,
-          };
+          } as APIProperty;
         })
       : [];
   }
 
-  private _getType(schemaObject: SchemaObject | undefined, namespace?: string) {
-    return defaultGetType(schemaObject);
+  private _getType(schemaObject: SchemaObject | undefined) {
+    const namespace = this._options.namespace;
+
+    if (schemaObject === undefined || schemaObject === null) {
+      return 'any';
+    }
+    if (typeof schemaObject !== 'object') {
+      return schemaObject;
+    }
+    if (schemaObject.$ref) {
+      return [namespace, getRefName(schemaObject)].filter((s) => s).join('.');
+    }
+
+    let { type } = schemaObject as any;
+
+    const numberEnum = [
+      'integer',
+      'long',
+      'float',
+      'double',
+      'number',
+      'int',
+      'float',
+      'double',
+      'int32',
+      'int64',
+    ];
+
+    const dateEnum = ['Date', 'date', 'dateTime', 'date-time', 'datetime'];
+
+    const stringEnum = ['string', 'email', 'password', 'url', 'byte', 'binary'];
+
+    if (type === 'null') {
+      return 'null';
+    }
+
+    if (numberEnum.includes(schemaObject.format)) {
+      type = 'number';
+    }
+
+    if (schemaObject.enum) {
+      type = 'enum';
+    }
+
+    if (numberEnum.includes(type)) {
+      return 'number';
+    }
+
+    if (dateEnum.includes(type)) {
+      return 'Date';
+    }
+
+    if (stringEnum.includes(type)) {
+      return 'string';
+    }
+
+    if (type === 'boolean') {
+      return 'boolean';
+    }
+
+    if (type === 'array') {
+      let { items } = schemaObject;
+      if (schemaObject.schema) {
+        items = schemaObject.schema.items;
+      }
+
+      if (Array.isArray(items)) {
+        const arrayItemType = (items as any)
+          .map((subType) => this._getType(subType.schema || subType))
+          .toString();
+        return `[${arrayItemType}]`;
+      }
+      const arrayType = this._getType(items);
+      return arrayType.includes(' | ') ? `(${arrayType})[]` : `${arrayType}[]`;
+    }
+
+    if (type === 'enum') {
+      return Array.isArray(schemaObject.enum)
+        ? Array.from(
+            new Set(
+              schemaObject.enum.map((v) =>
+                typeof v === 'string' ? `"${v.replace(/"/g, '"')}"` : this._getType(v),
+              ),
+            ),
+          ).join(' | ')
+        : 'string';
+    }
+
+    if (schemaObject.oneOf && schemaObject.oneOf.length) {
+      return schemaObject.oneOf.map((item) => this._getType(item)).join(' | ');
+    }
+    if (schemaObject.anyOf && schemaObject.anyOf.length) {
+      return schemaObject.anyOf.map((item) => this._getType(item)).join(' | ');
+    }
+    if (schemaObject.allOf && schemaObject.allOf.length) {
+      return `(${schemaObject.allOf.map((item) => this._getType(item)).join(' & ')})`;
+    }
+    if (schemaObject.type === 'object' || schemaObject.properties) {
+      if (!Object.keys(schemaObject.properties || {}).length) {
+        return 'Record<string, any>';
+      }
+      return `{ ${Object.keys(schemaObject.properties)
+        .map((key) => {
+          let required = false;
+          if (isBoolean(schemaObject.required) && schemaObject.required) {
+            required = true;
+          }
+          if (isArray(schemaObject.required) && schemaObject.required.includes(key)) {
+            required = true;
+          }
+          if (
+            'required' in (schemaObject.properties[key] || {}) &&
+            ((schemaObject.properties[key] || {}) as any).required
+          ) {
+            required = true;
+          }
+          /**
+           * 将类型属性变为字符串，兼容错误格式如：
+           * 3d_tile(数字开头)等错误命名，
+           * 在后面进行格式化的时候会将正确的字符串转换为正常形式，
+           * 错误的继续保留字符串。
+           * */
+          return `'${key}'${required ? '' : '?'}: ${this._getType(
+            schemaObject.properties && schemaObject.properties[key],
+          )}; `;
+        })
+        .join('')}}`;
+    }
+    return 'any';
   }
 }
 
-const defaultGetType = (schemaObject: SchemaObject | undefined): string => {
-  if (schemaObject === undefined || schemaObject === null) {
-    return 'any';
-  }
-  if (typeof schemaObject !== 'object') {
-    return schemaObject;
-  }
-  if (schemaObject.$ref) {
-    return [getRefName(schemaObject)].filter((s) => s).join('.');
-  }
-
-  let { type } = schemaObject as any;
-
-  const numberEnum = [
-    'integer',
-    'long',
-    'float',
-    'double',
-    'number',
-    'int',
-    'float',
-    'double',
-    'int32',
-    'int64',
-  ];
-
-  const dateEnum = ['Date', 'date', 'dateTime', 'date-time', 'datetime'];
-
-  const stringEnum = ['string', 'email', 'password', 'url', 'byte', 'binary'];
-
-  if (type === 'null') {
-    return 'null';
-  }
-
-  if (numberEnum.includes(schemaObject.format)) {
-    type = 'number';
-  }
-
-  if (schemaObject.enum) {
-    type = 'enum';
-  }
-
-  if (numberEnum.includes(type)) {
-    return 'number';
-  }
-
-  if (dateEnum.includes(type)) {
-    return 'Date';
-  }
-
-  if (stringEnum.includes(type)) {
-    return 'string';
-  }
-
-  if (type === 'boolean') {
-    return 'boolean';
-  }
-
-  if (type === 'array') {
-    let { items } = schemaObject;
-    if (schemaObject.schema) {
-      items = schemaObject.schema.items;
-    }
-
-    if (Array.isArray(items)) {
-      const arrayItemType = (items as any)
-        .map((subType) => defaultGetType(subType.schema || subType))
-        .toString();
-      return `[${arrayItemType}]`;
-    }
-    const arrayType = defaultGetType(items);
-    return arrayType.includes(' | ') ? `(${arrayType})[]` : `${arrayType}[]`;
-  }
-
-  if (type === 'enum') {
-    return Array.isArray(schemaObject.enum)
-      ? Array.from(
-          new Set(
-            schemaObject.enum.map((v) =>
-              typeof v === 'string' ? `"${v.replace(/"/g, '"')}"` : defaultGetType(v),
-            ),
-          ),
-        ).join(' | ')
-      : 'string';
-  }
-
-  if (schemaObject.oneOf && schemaObject.oneOf.length) {
-    return schemaObject.oneOf.map((item) => defaultGetType(item)).join(' | ');
-  }
-  if (schemaObject.anyOf && schemaObject.anyOf.length) {
-    return schemaObject.anyOf.map((item) => defaultGetType(item)).join(' | ');
-  }
-  if (schemaObject.allOf && schemaObject.allOf.length) {
-    return `(${schemaObject.allOf.map((item) => defaultGetType(item)).join(' & ')})`;
-  }
-  if (schemaObject.type === 'object' || schemaObject.properties) {
-    if (!Object.keys(schemaObject.properties || {}).length) {
-      return 'Record<string, any>';
-    }
-    return `{ ${Object.keys(schemaObject.properties)
-      .map((key) => {
-        let required = false;
-        if (isBoolean(schemaObject.required) && schemaObject.required) {
-          required = true;
-        }
-        if (isArray(schemaObject.required) && schemaObject.required.includes(key)) {
-          required = true;
-        }
-        if (
-          'required' in (schemaObject.properties[key] || {}) &&
-          ((schemaObject.properties[key] || {}) as any).required
-        ) {
-          required = true;
-        }
-        /**
-         * 将类型属性变为字符串，兼容错误格式如：
-         * 3d_tile(数字开头)等错误命名，
-         * 在后面进行格式化的时候会将正确的字符串转换为正常形式，
-         * 错误的继续保留字符串。
-         * */
-        return `'${key}'${required ? '' : '?'}: ${defaultGetType(
-          schemaObject.properties && schemaObject.properties[key],
-        )}; `;
-      })
-      .join('')}}`;
-  }
-  return 'any';
-};
 function getRefName(refObject: any): string {
   if (typeof refObject !== 'object' || !refObject.$ref) {
     return refObject;

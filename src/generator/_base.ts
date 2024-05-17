@@ -1,10 +1,11 @@
 import { OpenAPIObject } from 'openapi3-ts';
-import { ModuleItem, OpenapiDataParser } from '../parser';
+import { ModuleItem, OpenapiDataParser, ParserResult } from '../parser';
 import Handlebars from 'handlebars';
 import { writeFile } from '../util';
 import './_handlebars';
 
 export interface IGeneratorConfig {
+  debug?: boolean;
   basePath?: string;
   namespace?: string;
 }
@@ -15,7 +16,7 @@ const DEFAULT_NAMESPACE = 'API';
 export class BaseGenerator {
   protected config: IGeneratorConfig;
 
-  protected data?: ModuleItem[];
+  protected data?: ParserResult;
 
   constructor(parser: OpenapiDataParser, config: IGeneratorConfig) {
     this.data = parser.GetResult();
