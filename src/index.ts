@@ -8,10 +8,13 @@ import Log from './log';
 import { ServiceGenerator, ServiceGeneratorConfig } from './generator/services';
 import { OpenapiDataParser } from './parser';
 import { IGeneratorConfig } from './generator/_base';
+import { PageGenerator, PageGeneratorConfig } from './generator';
+import _ from 'lodash';
 
 export type GenerateCodeOptions = IGeneratorConfig & {
   schemaPath: string;
   service?: false | ServiceGeneratorConfig;
+  page?: false | PageGeneratorConfig;
 };
 
 const converterSwaggerToOpenApi = (swagger: any) => {
@@ -62,16 +65,18 @@ const getOpenAPIConfig = async (schemaPath: string) => {
 };
 
 // 从 appName 生成 service 数据
-export const generateCode = async ({ service, ...rest }: GenerateCodeOptions) => {
+export const generateCode = async ({ service, page, ...rest }: GenerateCodeOptions) => {
   const openAPI = await getOpenAPIConfig(rest.schemaPath);
 
   const parser = new OpenapiDataParser(openAPI, { ...rest });
 
   if (service !== false) {
-    const serviceGenerator = new ServiceGenerator(
-      parser,
-      Object.assign({ ...rest }, service ?? {}),
-    );
+    const serviceGenerator = new ServiceGenerator(parser, _.merge({ ...rest }, service ?? {}));
     serviceGenerator.Generate();
+  }
+
+  if (page !== false) {
+    const pageGenerator = new PageGenerator(parser, _.merge({ ...rest }, page ?? {}));
+    pageGenerator.Generate();
   }
 };

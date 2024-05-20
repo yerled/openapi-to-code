@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@types/lodash':
+        specifier: ^4.17.4
+        version: 4.17.4
       '@umijs/fabric':
         specifier: ^2.5.6
         version: 2.14.1
@@ -879,6 +882,9 @@ packages:
 
   '@types/keyv@3.1.4':
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
+
+  '@types/lodash@4.17.4':
+    resolution: {integrity: sha512-wYCP26ZLxaT3R39kiN2+HcJ4kTd3U1waI/cY7ivWYqFP6pW3ZNpvi6Wd6PHZx7T/t8z0vlkXMg3QYLa7DZ/IJQ==}
 
   '@types/mdast@3.0.15':
     resolution: {integrity: sha512-LnwD+mUEfxWMa1QpDraczIn6k0Ee3SMicuYSSzS6ZYl2gKS09EClnJYGd8Du6rfc5r/GZEk5o1mRb8TaTj03sQ==}
@@ -4686,6 +4692,8 @@ snapshots:
   '@types/keyv@3.1.4':
     dependencies:
       '@types/node': 14.18.63
+
+  '@types/lodash@4.17.4': {}
 
   '@types/mdast@3.0.15':
     dependencies:

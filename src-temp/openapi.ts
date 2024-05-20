@@ -14,4 +14,10 @@ generateCode({
     // serviceFolder: 'services',
     requestOptionsType: 'RequestOptions',
   },
+  // components: {
+
+  // },
+  page: {
+    // pageFolder: 'pages',
+  },
 });
