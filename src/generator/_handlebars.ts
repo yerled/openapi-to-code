@@ -13,7 +13,7 @@ handlebars.registerHelper({
   stringify: (obj: any) => JSON.stringify(obj, null, 2),
   property: (obj: APIProperty) =>
     `${obj.name}${obj.required === false ? '?' : ''}: ${obj.type};${
-      obj.desc ? ' // ' + obj.desc : ''
+      obj.desc ? ` // ${obj.title} ${obj.desc}` : ''
     }`,
   stringTemplate: (str: string) => str?.replace(/{/g, '${'),
 });

@@ -38,18 +38,22 @@ export type RouteItem = {
   fullName: string;
   desc: string;
   params: RouteParams;
-  body: any;
-  response: any;
+  body: RouteBody;
+  response: RouteResponse;
 };
 export type RouteParams = RouteParamProperty[];
 export type RouteParamProperty = APIProperty & { in: 'query' | 'path' };
-export type RouteBody = {};
-export type RouteResponse = {};
+export type RouteBody = { mediaType: string; type: string; required?: boolean };
+export type RouteResponse = { mediaType: string; type: string; required?: boolean };
 export type APIProperty = {
   name: string;
+  title: string;
   desc: string;
   type: string;
   required: boolean;
+  maxLength?: number;
+  max?: number;
+  min?: number;
 };
 
 const validMethods = ['get', 'put', 'post', 'delete', 'patch'];
@@ -151,6 +155,7 @@ export class OpenapiDataParser {
         const isRefObject = (deRefObj[1] || {}).type === 'object';
         routeParams.push({
           name: p.name,
+          title: p.title,
           desc: p.description,
           required: p.required,
           type: this._getType(p.schema || DEFAULT_SCHEMA),
@@ -364,9 +369,13 @@ export class OpenapiDataParser {
           return {
             name: propName,
             type: this._getType(schema),
-            desc: [schema.title, schema.description].filter((s) => s).join(' '),
+            title: schema.title,
+            desc: schema.description,
             // 如果没有 required 信息，默认全部是非必填
             required: requiredPropKeys ? requiredPropKeys.some((key) => key === propName) : false,
+            maxLength: schema.maxLength,
+            max: schema.maximum,
+            min: schema.minimum,
           } as APIProperty;
         })
       : [];

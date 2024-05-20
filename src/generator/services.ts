@@ -18,7 +18,7 @@ const DEFAULT_SERVICE_CONFIG: ServiceGeneratorConfig = {
 };
 
 export class ServiceGenerator extends BaseGenerator {
-  config: ServiceGeneratorConfig;
+  config: ServiceGeneratorConfig = DEFAULT_SERVICE_CONFIG;
 
   constructor(parser: OpenapiDataParser, config: ServiceGeneratorConfig) {
     super(parser, _.merge(DEFAULT_SERVICE_CONFIG, config));

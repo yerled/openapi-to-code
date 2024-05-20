@@ -4,7 +4,7 @@ import { ModuleItem, OpenapiDataParser, RouteItem } from '../parser';
 import Log from '../log';
 import path from 'path';
 import _ from 'lodash';
-import { TableConfig, TablePage } from './pages.template';
+import { ModalForm, TableConfig, TablePage } from './pages.template';
 
 export type PageGeneratorConfig = IGeneratorConfig & {
   pageFolder?: string;
@@ -15,7 +15,7 @@ const DEFAULT_PAGE_CONFIG: PageGeneratorConfig = {
 };
 
 export class PageGenerator extends BaseGenerator {
-  config: PageGeneratorConfig;
+  config: PageGeneratorConfig = DEFAULT_PAGE_CONFIG;
 
   constructor(parser: OpenapiDataParser, config: PageGeneratorConfig) {
     super(parser, _.merge(DEFAULT_PAGE_CONFIG, config));
@@ -42,9 +42,10 @@ export class PageGenerator extends BaseGenerator {
 
   private _generateTablePage(module: ModuleItem, route: RouteItem) {
     const capitalizedModuleName = _.capitalize(_.camelCase(`${module.name}`));
-    const entity = defaultGetEntityFromRoute(route);
+    const entity = getEntityFromPageRoute(route);
     const deleteRoute = module.routes.find(isDeleteAPI);
     const detailRoute = module.routes.find(isDetailAPI);
+    const addRoute = module.routes.find(isAddAPI);
     const params = {
       debug: this.config.debug,
       namespace: this.config.namespace,
@@ -53,18 +54,25 @@ export class PageGenerator extends BaseGenerator {
       entity: this._getTypeByName(entity),
       columnMap: `${capitalizedModuleName}ColumnMap`,
       table: `${capitalizedModuleName}Table`,
+      form: `${capitalizedModuleName}ModalForm`,
       service: `${module.name}Service`,
       tableRoute: route,
       deleteRoute,
       detailRoute,
+      addRoute,
+      addIn: this._getTypeByName(getDtoFromType(addRoute?.body.type ?? '')),
     };
-    this._generateTableConfig(module, params);
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder),
       fileName: `${_.capitalize(_.camelCase(`${module.name}`))}Table.tsx`,
       template: TablePage,
       params,
     });
+
+    this._generateTableConfig(module, params);
+    if (addRoute) {
+      this._generateModalForm(module, params, addRoute);
+    }
   }
 
   private _generateTableConfig(module: ModuleItem, params: Record<string, any>) {
@@ -72,6 +80,15 @@ export class PageGenerator extends BaseGenerator {
       path: path.join(this.config.basePath, module.name, this.config.pageFolder),
       fileName: `tableConfig.tsx`,
       template: TableConfig,
+      params,
+    });
+  }
+
+  private _generateModalForm(module: ModuleItem, params: Record<string, any>, route: RouteItem) {
+    this.genFile({
+      path: path.join(this.config.basePath, module.name, this.config.pageFolder, 'components'),
+      fileName: `${params.form}.tsx`,
+      template: ModalForm,
       params,
     });
   }
@@ -96,6 +113,9 @@ function isAddAPI(route: RouteItem) {
 function isUpdateAPI(route: RouteItem) {
   return route.name === 'update';
 }
-function defaultGetEntityFromRoute(route: RouteItem) {
+function getEntityFromPageRoute(route: RouteItem) {
   return route.response.type.match(/.([a-zA-Z]+)\[\]/)?.at(-1) || route.response.type;
+}
+function getDtoFromType(type: string) {
+  return type.split('.').pop() || type;
 }
