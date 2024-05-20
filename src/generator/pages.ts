@@ -33,40 +33,69 @@ export class PageGenerator extends BaseGenerator {
   private _generatePages() {
     this.data.modules?.forEach((module) => {
       module.routes.forEach((route) => {
-        if (route.name === 'page') {
-          this._generateTablePage(route, module);
+        if (isPageAPI(route)) {
+          this._generateTablePage(module, route);
         }
       });
     });
   }
 
-  private _generateTablePage(route: RouteItem, module: ModuleItem) {
-    this._generateTableConfig(route, module);
+  private _generateTablePage(module: ModuleItem, route: RouteItem) {
+    const capitalizedModuleName = _.capitalize(_.camelCase(`${module.name}`));
+    const entity = defaultGetEntityFromRoute(route);
+    const deleteRoute = module.routes.find(isDeleteAPI);
+    const detailRoute = module.routes.find(isDetailAPI);
+    const params = {
+      debug: this.config.debug,
+      namespace: this.config.namespace,
+      moduleName: module.name,
+      moduleDesc: module.desc,
+      entity: this._getTypeByName(entity),
+      columnMap: `${capitalizedModuleName}ColumnMap`,
+      table: `${capitalizedModuleName}Table`,
+      service: `${module.name}Service`,
+      tableRoute: route,
+      deleteRoute,
+      detailRoute,
+    };
+    this._generateTableConfig(module, params);
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder),
       fileName: `${_.capitalize(_.camelCase(`${module.name}`))}Table.tsx`,
       template: TablePage,
-      params: {
-        namespace: this.config.namespace,
-        entity: route.response,
-        module: module.name,
-      },
+      params,
     });
   }
 
-  private _generateTableConfig(route: RouteItem, module: ModuleItem) {
-    const capitalizedModuleName = _.capitalize(_.camelCase(`${module.name}`));
+  private _generateTableConfig(module: ModuleItem, params: Record<string, any>) {
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder),
-      fileName: `config.tsx`,
+      fileName: `tableConfig.tsx`,
       template: TableConfig,
-      params: {
-        namespace: this.config.namespace,
-        moduleName: module.name,
-        moduleDesc: module.desc,
-        capitalizedModuleName,
-        entity: `${'Tag'}`,
-      },
+      params,
     });
   }
+
+  private _getTypeByName(name: string) {
+    return this.data.types?.find((type) => type.name === name);
+  }
+}
+
+function isPageAPI(route: RouteItem) {
+  return route.name === 'page';
+}
+function isDeleteAPI(route: RouteItem) {
+  return route.name === 'delete';
+}
+function isDetailAPI(route: RouteItem) {
+  return route.name === 'getOne';
+}
+function isAddAPI(route: RouteItem) {
+  return route.name === 'add';
+}
+function isUpdateAPI(route: RouteItem) {
+  return route.name === 'update';
+}
+function defaultGetEntityFromRoute(route: RouteItem) {
+  return route.response.type.match(/.([a-zA-Z]+)\[\]/)?.at(-1) || route.response.type;
 }

@@ -45,7 +45,7 @@ options?: {{ ../requestOptionsType }}
 
 {{/each}}
 
-export const {{module.name}}API = {
+export const {{module.name}}Service = {
 {{#each module.routes}}
   {{name}}: {{ fullName }},
 {{/each}}
