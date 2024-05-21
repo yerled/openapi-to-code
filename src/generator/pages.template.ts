@@ -1,21 +1,22 @@
-export const TableConfig = `
+export const Helper = `
 import {
   ProColumns,
   ProDescriptionsItemProps,
   ProSchemaValueEnumMap,
 } from '@ant-design/pro-components';
+import { message } from 'antd';
+import { {{service}} } from '../services/{{moduleName}}';
 
 {{#if _debug}}
 /**
- entity: {{{stringify entity}}}
+ entity: {{{stringify entityProps}}}
  */
 {{/if}}
 
-type Entity = {{namespace}}.{{entity.name}}
-type Item = ProColumns<Entity> & ProDescriptionsItemProps<Entity>;
-export const {{columnMap}}: Record<keyof Entity, Item> = {
-  ...({} as Record<keyof Entity, Item>),
-  {{#each entity.props}}
+type Item = ProColumns<{{entity}}> & ProDescriptionsItemProps<{{entity}}>;
+export const {{columnMap}}: Record<keyof {{entity}}, Item> = {
+  ...({} as Record<keyof {{entity}}, Item>),
+  {{#each entityProps}}
   {{name}}: {
     title: '{{placeholder title desc}}',
     dataIndex: '{{name}}',
@@ -24,6 +25,42 @@ export const {{columnMap}}: Record<keyof Entity, Item> = {
   },
   {{/each}}
 };
+
+
+{{#if addRoute}}
+export const {{handleAdd}} = async (fields: {{entity}}) => {
+  const hide = message.loading('正在添加');
+  try {
+    const res = await {{service}}.{{addRoute.name}}({
+      ...fields,
+    });
+    hide();
+    message.success('添加成功');
+    return res;
+  } catch (error) {
+    hide();
+    return false;
+  }
+};
+{{/if}}
+
+{{#if updateRoute}}
+export const {{handleUpdate}} = async (fields: {{entity}}) => {
+  const { ...params } = fields;
+
+  const hide = message.loading('正在配置');
+  try {
+    await {{service}}.{{updateRoute.name}}(params);
+    hide();
+
+    message.success('配置成功');
+    return true;
+  } catch (error) {
+    hide();
+    return false;
+  }
+};
+{{/if}}
 `;
 
 export const TablePage = `
@@ -42,45 +79,10 @@ import { Link } from '@umijs/max';
 import { Button, Drawer, Input, Modal, message, Image } from 'antd';
 import React, { useRef, useState } from 'react';
 import { buildProTableRequest } from '@/services/server/tools';
-import { {{columnMap}} } from './tableConfig';
+import { {{columnMap}}{{#if addRoute}}, {{handleAdd}}{{/if}}{{#if updateRoute}}, {{handleUpdate}}{{/if}} } from './helper';
 import { {{service}} } from '../services/{{moduleName}}';
-{{#if addRoute}}import { {{form}} } from './components/{{form}}';{{/if}}
-
-type Entity = {{namespace}}.{{entity.name}}
-
 {{#if addRoute}}
-const handleAdd = async (fields: Entity) => {
-  const hide = message.loading('正在添加');
-  try {
-    const res = await {{service}}.{{addRoute.name}}({
-      ...fields,
-    });
-    hide();
-    message.success('添加成功');
-    return res;
-  } catch (error) {
-    hide();
-    return false;
-  }
-};
-{{/if}}
-
-{{#if updateRoute}}
-const handleUpdate = async (fields: Entity) => {
-  const { ...params } = fields;
-
-  const hide = message.loading('正在配置');
-  try {
-    await {{service}}.{{addRoute.name}}(params);
-    hide();
-
-    message.success('配置成功');
-    return true;
-  } catch (error) {
-    hide();
-    return false;
-  }
-};
+import { {{form}} } from './components/{{form}}';
 {{/if}}
 
 const {{table}}: React.FC = () => {
@@ -88,12 +90,12 @@ const {{table}}: React.FC = () => {
   const [updateModalOpen, handleUpdateModalOpen] = useState<boolean>(false);
 
   const [showDetail, setShowDetail] = useState<boolean>(false);
-  const [currentRow, setCurrentRow] = useState<Entity>();
+  const [currentRow, setCurrentRow] = useState<{{entity}}>();
 
   const actionRef = useRef<ActionType>();
 
-  const columns: ProColumns<Entity>[] = [
-    {{#each entity.props}}
+  const columns: ProColumns<{{entity}}>[] = [
+    {{#each entityProps}}
     {{../columnMap}}.{{name}},
     {{/each}}
     {
@@ -112,6 +114,19 @@ const {{table}}: React.FC = () => {
         >
           查看
         </Button>,
+        {{#if updateRoute}}
+        <Button
+          type="link"
+          key="update"
+          size="small"
+          onClick={() => {
+            setCurrentRow(record);
+            handleUpdateModalOpen(true);
+          }}
+        >
+          编辑
+        </Button>,
+        {{/if}}
         {{#if deleteRoute}}
         <Button
           key="delete"
@@ -140,7 +155,7 @@ const {{table}}: React.FC = () => {
   const searchConfig = { defaultCollapsed: false, labelWidth: 64 }
   return (
     <PageContainer>
-      <ProTable<Entity, {{namespace}}.PageParams>
+      <ProTable<{{entity}}, {{namespace}}.PageParams>
         headerTitle='{{moduleDesc}}列表'
         actionRef={actionRef}
         rowKey="id"
@@ -168,7 +183,7 @@ const {{table}}: React.FC = () => {
         open={createModalOpen}
         onOpenChange={handleModalOpen}
         onFinish={async (value) => {
-          const success = await handleAdd(value as Entity);
+          const success = await {{handleAdd}}(value as {{entity}});
           if (success) {
             handleModalOpen(false);
             if (actionRef.current) {
@@ -183,7 +198,7 @@ const {{table}}: React.FC = () => {
         title="编辑{{moduleDesc}}"
         operationType="update"
         onFinish={async (value) => {
-          const success = await handleUpdate({ ...currentRow, ...value });
+          const success = await {{handleUpdate}}({ ...currentRow, ...value });
           if (success) {
             handleUpdateModalOpen(false);
             setCurrentRow(undefined);
@@ -212,7 +227,7 @@ const {{table}}: React.FC = () => {
         closable={false}
       >
         {currentRow?.id && (
-          <ProDescriptions<Entity>
+          <ProDescriptions<{{entity}}>
             column={2}
             title="{{moduleDesc}}详情"
             request={async () =>
@@ -260,15 +275,14 @@ import { FormItemRules } from '@/components/Form/config';
  */
 {{/if}}
 
-type Entity = {{namespace}}.{{entity.name}}
 type FormProps = {
   title: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onCancel?: () => void;
   operationType?: 'add' | 'update';
-  onFinish?: (values: Entity) => Promise<void>;
-  dataSource?: Entity;
+  onFinish?: (values: {{entity}}) => Promise<void>;
+  dataSource?: {{entity}};
 };
 
 export const {{form}}: React.FC<FormProps> = (props) => {
@@ -281,7 +295,7 @@ export const {{form}}: React.FC<FormProps> = (props) => {
     onFinish,
     onOpenChange,
   } = props;
-  const [form] = Form.useForm<Entity>();
+  const [form] = Form.useForm<{{entity}}>();
 
   useEffect(() => {
     if (dataSource) {
@@ -333,5 +347,83 @@ export const {{form}}: React.FC<FormProps> = (props) => {
     </ModalForm>
   );
 }; 
+
+`;
+
+export const AddPage = `
+import React, { useState } from 'react';
+import { message, Result, Button, Form } from 'antd';
+import moment from 'moment';
+import AdvertisementForm from './components/AdvertisementForm';
+import { advertisementService } from '@/services/server/advertisement';
+import { PageContainer } from '@ant-design/pro-components';
+import { Link } from '@umijs/max';
+import { PublishStatus } from '@/components/PublishStatus/config';
+
+enum PageStatus {
+  NORMAL = 0,
+  SUCCESS = 1,
+}
+
+/**
+ *
+ * @param fields 添加节点
+ * @returns
+ */
+const handleAdd = async (fields: API.Advertisement) => {
+  const hide = message.loading('正在添加');
+  try {
+    const res = await advertisementService.add({ title: '', img: '', ...fields });
+    hide();
+    message.success('添加成功');
+    return res;
+  } catch (error) {
+    hide();
+    return false;
+  }
+};
+
+const AddAdvertisement: React.FC = () => {
+  const [status, setStatus] = useState(PageStatus.NORMAL);
+  const [form] = Form.useForm();
+  const refresh = () => {
+    setStatus(PageStatus.NORMAL);
+    form.resetFields();
+  };
+
+  return (
+    <PageContainer>
+      {status === PageStatus.SUCCESS && (
+        <Result
+          status="success"
+          title={'创建成功'}
+          extra={[
+            <Button type="primary" key="add" onClick={refresh}>
+              {'继续创建'}
+            </Button>,
+            <Button key="list">
+              <Link to="/advertisement">{'返回列表'}</Link>
+            </Button>,
+          ]}
+        />
+      )}
+      {status === PageStatus.NORMAL && (
+        <AdvertisementForm
+          operationType="add"
+          onFinish={async (value: API.Advertisement) => {
+            const success = await handleAdd({
+              ...value,
+            });
+            if (success) {
+              setStatus(PageStatus.SUCCESS);
+            }
+          }}
+        />
+      )}
+    </PageContainer>
+  );
+};
+
+export default AddAdvertisement;
 
 `;

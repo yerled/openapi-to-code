@@ -4,7 +4,7 @@ import { ModuleItem, OpenapiDataParser, RouteItem } from '../parser';
 import Log from '../log';
 import path from 'path';
 import _ from 'lodash';
-import { ModalForm, TableConfig, TablePage } from './pages.template';
+import { ModalForm, Helper, TablePage } from './pages.template';
 
 export type PageGeneratorConfig = IGeneratorConfig & {
   pageFolder?: string;
@@ -47,13 +47,17 @@ export class PageGenerator extends BaseGenerator {
     const detailRoute = module.routes.find(isDetailAPI);
     const addRoute = module.routes.find(isAddAPI);
     const updateRoute = module.routes.find(isUpdateAPI);
+    const _entity = this._getTypeByName(entity);
     const params = {
       _debug: this.config._debug,
       namespace: this.config.namespace,
       moduleName: module.name,
       moduleDesc: module.desc,
-      entity: this._getTypeByName(entity),
+      entity: `${this.config.namespace}.${_entity?.name}`,
+      entityProps: _entity?.props,
       columnMap: `${capitalizedModuleName}ColumnMap`,
+      handleAdd: `handleAdd${capitalizedModuleName}`,
+      handleUpdate: `handleUpdate${capitalizedModuleName}`,
       table: `${capitalizedModuleName}Table`,
       form: `${capitalizedModuleName}ModalForm`,
       service: `${module.name}Service`,
@@ -73,17 +77,17 @@ export class PageGenerator extends BaseGenerator {
       params,
     });
 
-    this._generateTableConfig(params, module);
+    this._generateHelper(params, module);
     if (addRoute) {
       this._generateModalForm(params, module, addRoute);
     }
   }
 
-  private _generateTableConfig(params: Record<string, any>, module: ModuleItem) {
+  private _generateHelper(params: Record<string, any>, module: ModuleItem) {
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder),
-      fileName: `tableConfig.tsx`,
-      template: TableConfig,
+      fileName: `helper.tsx`,
+      template: Helper,
       params,
     });
   }
