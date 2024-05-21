@@ -1,10 +1,16 @@
 import Handlebars from 'handlebars';
 import { BaseGenerator, IGeneratorConfig } from './_base';
-import { ModuleItem, OpenapiDataParser, RouteItem } from '../parser';
+import { ModuleItem, OpenapiDataParser, RouteItem, TypeItem } from '../parser';
 import Log from '../log';
 import path from 'path';
 import _ from 'lodash';
-import { ModalForm, Helper, TablePage } from './pages.template';
+import {
+  FormTemplate,
+  HelperTemplate,
+  TablePageTemplate,
+  AddPageTemplate,
+  UpdatePageTemplate,
+} from './pages.template';
 
 export type PageGeneratorConfig = IGeneratorConfig & {
   pageFolder?: string;
@@ -48,37 +54,51 @@ export class PageGenerator extends BaseGenerator {
     const addRoute = module.routes.find(isAddAPI);
     const updateRoute = module.routes.find(isUpdateAPI);
     const _entity = this._getTypeByName(entity);
+    const formDto =
+      this._getTypeByName(getDtoFromType(addRoute?.body.type ?? '')) ||
+      this._getTypeByName(getDtoFromType(updateRoute?.body.type ?? ''));
+    const _isModalForm = isModalForm(module, formDto);
     const params = {
       _debug: this.config._debug,
       namespace: this.config.namespace,
       moduleName: module.name,
       moduleDesc: module.desc,
+      isModalForm: _isModalForm,
       entity: `${this.config.namespace}.${_entity?.name}`,
       entityProps: _entity?.props,
       columnMap: `${capitalizedModuleName}ColumnMap`,
       handleAdd: `handleAdd${capitalizedModuleName}`,
       handleUpdate: `handleUpdate${capitalizedModuleName}`,
       table: `${capitalizedModuleName}Table`,
-      form: `${capitalizedModuleName}ModalForm`,
+      gotoTable: `goto${capitalizedModuleName}Table`,
+      gotoAdd: `goto${capitalizedModuleName}Add`,
+      gotoUpdate: `goto${capitalizedModuleName}Update`,
+      form: `${capitalizedModuleName}Form`,
       service: `${module.name}Service`,
+      add: `Add${capitalizedModuleName}`,
       tableRoute: route,
       deleteRoute,
       detailRoute,
       addRoute,
-      addIn:
-        this._getTypeByName(getDtoFromType(addRoute?.body.type ?? '')) ||
-        this._getTypeByName(getDtoFromType(updateRoute?.body.type ?? '')),
+      update: `Update${capitalizedModuleName}`,
       updateRoute,
+      formDto: formDto,
     };
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder),
       fileName: `${_.capitalize(_.camelCase(`${module.name}`))}Table.tsx`,
-      template: TablePage,
+      template: TablePageTemplate,
       params,
     });
 
     this._generateHelper(params, module);
     if (addRoute) {
+      this._generateAddPage(params, module, addRoute);
+    }
+    if (updateRoute) {
+      this._generateUpdatePage(params, module, addRoute);
+    }
+    if (formDto && _isModalForm) {
       this._generateModalForm(params, module, addRoute);
     }
   }
@@ -87,7 +107,25 @@ export class PageGenerator extends BaseGenerator {
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder),
       fileName: `helper.tsx`,
-      template: Helper,
+      template: HelperTemplate,
+      params,
+    });
+  }
+
+  private _generateAddPage(params: Record<string, any>, module: ModuleItem, route: RouteItem) {
+    this.genFile({
+      path: path.join(this.config.basePath, module.name, this.config.pageFolder),
+      fileName: `Add.tsx`,
+      template: AddPageTemplate,
+      params,
+    });
+  }
+
+  private _generateUpdatePage(params: Record<string, any>, module: ModuleItem, route: RouteItem) {
+    this.genFile({
+      path: path.join(this.config.basePath, module.name, this.config.pageFolder),
+      fileName: `Update.tsx`,
+      template: UpdatePageTemplate,
       params,
     });
   }
@@ -96,7 +134,7 @@ export class PageGenerator extends BaseGenerator {
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder, 'components'),
       fileName: `${params.form}.tsx`,
-      template: ModalForm,
+      template: FormTemplate,
       params,
     });
   }
@@ -106,6 +144,10 @@ export class PageGenerator extends BaseGenerator {
   }
 }
 
+function isModalForm(module: ModuleItem, type: TypeItem) {
+  console.log(module.name, type?.name, type?.props?.length);
+  return type?.props.length <= 3;
+}
 function isPageAPI(route: RouteItem) {
   return route.name === 'page';
 }

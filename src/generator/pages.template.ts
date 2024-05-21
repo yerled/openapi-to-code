@@ -1,10 +1,11 @@
-export const Helper = `
+export const HelperTemplate = `
 import {
   ProColumns,
   ProDescriptionsItemProps,
   ProSchemaValueEnumMap,
 } from '@ant-design/pro-components';
 import { message } from 'antd';
+import { history } from '@umijs/max';
 import { {{service}} } from '../services/{{moduleName}}';
 
 {{#if _debug}}
@@ -61,9 +62,13 @@ export const {{handleUpdate}} = async (fields: {{entity}}) => {
   }
 };
 {{/if}}
+
+export const {{gotoTable}} = () => history.push('/{{moduleName}}');
+export const {{gotoAdd}} = () => history.push('/{{moduleName}}/add');
+export const {{gotoUpdate}} = (id: string | number) => history.push(\`/{{moduleName}}/update?id=\${id}\`);
 `;
 
-export const TablePage = `
+export const TablePageTemplate = `
 import { PlusOutlined } from '@ant-design/icons';
 import type { ActionType, ProColumns, ProDescriptionsItemProps } from '@ant-design/pro-components';
 import {
@@ -79,7 +84,7 @@ import { Link } from '@umijs/max';
 import { Button, Drawer, Input, Modal, message, Image } from 'antd';
 import React, { useRef, useState } from 'react';
 import { buildProTableRequest } from '@/services/server/tools';
-import { {{columnMap}}{{#if addRoute}}, {{handleAdd}}{{/if}}{{#if updateRoute}}, {{handleUpdate}}{{/if}} } from './helper';
+import { {{columnMap}}{{#if addRoute}}, {{gotoAdd}}, {{handleAdd}}{{/if}}{{#if updateRoute}}, {{gotoUpdate}}, {{handleUpdate}}{{/if}} } from './helper';
 import { {{service}} } from '../services/{{moduleName}}';
 {{#if addRoute}}
 import { {{form}} } from './components/{{form}}';
@@ -120,8 +125,12 @@ const {{table}}: React.FC = () => {
           key="update"
           size="small"
           onClick={() => {
+            {{#if ../isModalForm}} 
             setCurrentRow(record);
-            handleUpdateModalOpen(true);
+            handleUpdateModalOpen(true); 
+            {{else}} 
+            {{gotoUpdate}}(record.id);
+            {{/if}}
           }}
         >
           编辑
@@ -166,7 +175,11 @@ const {{table}}: React.FC = () => {
             type="primary"
             key="primary"
             onClick={() => {
+              {{#if ../isModalForm}}
               handleModalOpen(true);
+              {{else}}
+              {{gotoAdd}}();
+              {{/if}}
             }}
           >
             <PlusOutlined /> 新建
@@ -176,8 +189,10 @@ const {{table}}: React.FC = () => {
         request={buildProTableRequest({{service}}.{{tableRoute.name}}, columns)}
         columns={columns}
       />
+      {{#if isModalForm}}
       {{#if addRoute}}
       <{{form}}
+        isModal
         title="新建{{moduleDesc}}"
         operationType="add"
         open={createModalOpen}
@@ -195,6 +210,7 @@ const {{table}}: React.FC = () => {
       {{/if}}
       {{#if updateRoute}}
       <{{form}}
+        isModal
         title="编辑{{moduleDesc}}"
         operationType="update"
         onFinish={async (value) => {
@@ -216,6 +232,7 @@ const {{table}}: React.FC = () => {
         open={updateModalOpen}
         dataSource={currentRow}
       />
+      {{/if}}
       {{/if}}
       <Drawer
         width={600}
@@ -250,7 +267,7 @@ const {{table}}: React.FC = () => {
 export default {{table}};
 `;
 
-export const ModalForm = `
+export const FormTemplate = `
 import React, { ComponentProps, useEffect } from 'react';
 import { Button, Card, Col, Form, Row } from 'antd';
 import {
@@ -267,15 +284,17 @@ import {
   ModalForm,
 } from '@ant-design/pro-components';
 import { FormItemRules } from '@/components/Form/config';
+import { {{gotoTable}} } from '../helper';
 
 {{#if _debug}}
 /**
  namespace: {{{namespace}}}
- addIn: {{{stringify addIn}}}
+ formDto: {{{stringify formDto}}}
  */
 {{/if}}
 
 type FormProps = {
+  isModal?: boolean;
   title: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -294,6 +313,7 @@ export const {{form}}: React.FC<FormProps> = (props) => {
     open,
     onFinish,
     onOpenChange,
+    isModal,
   } = props;
   const [form] = Form.useForm<{{entity}}>();
 
@@ -309,81 +329,95 @@ export const {{form}}: React.FC<FormProps> = (props) => {
     // destroyOnClose: true,
     maskClosable: false,
   }
+  const items = <>
+    {{#each formDto.props}}
+    {{#if (eq type "string")}}
+    <ProFormText
+      name="{{name}}"
+      label="{{placeholder title desc}}"
+      rules={[
+        {{#if required}}FormItemRules.required,{{/if}}
+        {{#if maxLength}}FormItemRules.supportedCharacters, FormItemRules.maxLength{{maxLength}},{{/if}}
+      ]}
+    />
+    {{/if}}
+    {{#if (eq type "number")}}
+    <ProFormDigit
+      name="{{name}}"
+      label="{{placeholder title desc}}"
+      rules={[
+        {{#if required}}FormItemRules.required,{{/if}}
+        {{#if max}}{max: {{max}} },{{/if}}
+        {{#if min}}{min: {{min}} },{{/if}}
+      ]}
+    />
+    {{/if}}
+    {{/each}}
+  </>
+
+  if (isModal) {
+    return (
+      <ModalForm
+        title={title}
+        open={open}
+        width={520}
+        onFinish={onFinish}
+        initialValues={dataSource}
+        onOpenChange={onOpenChange}
+        modalProps={modalProps}
+        form={form}
+        scrollToFirstError
+      >
+        {items}
+      </ModalForm>
+    );
+  }
+
+  const proFormStyle: ComponentProps<typeof ProForm>['style'] = {
+    maxWidth: 600,
+    margin: 'auto',
+  }
+  const proFormSubmitter: ComponentProps<typeof ProForm>['submitter'] = {
+    render: (_, dom) => (
+      <FooterToolbar>
+        <Button key="cancel" onClick={ {{gotoTable}} }>
+          取消
+        </Button>
+        {dom}
+      </FooterToolbar>
+    ),
+  }
   return (
-    <ModalForm
+    <ProForm
       form={form}
-      title={title}
-      open={open}
       scrollToFirstError
-      width={520}
+      initialValues={dataSource}
       onFinish={onFinish}
-      initialValues={dataSource ? dataSource : undefined}
-      onOpenChange={onOpenChange}
-      modalProps={modalProps}
+      style={proFormStyle}
+      submitter={proFormSubmitter}
     >
-      {{#each addIn.props}}
-      {{#if (eq type "string")}}
-      <ProFormText
-        name="{{name}}"
-        label="{{placeholder title desc}}"
-        rules={[
-          {{#if required}}FormItemRules.required,{{/if}}
-          {{#if maxLength}}FormItemRules.supportedCharacters, FormItemRules.maxLength{{maxLength}},{{/if}}
-        ]}
-      />
-      {{/if}}
-      {{#if (eq type "number")}}
-      <ProFormDigit
-        name="{{name}}"
-        label="{{placeholder title desc}}"
-        rules={[
-          {{#if required}}FormItemRules.required,{{/if}}
-          {{#if max}}{max: {{max}} },{{/if}}
-          {{#if min}}{min: {{min}} },{{/if}}
-        ]}
-      />
-      {{/if}}
-      {{/each}}
-    </ModalForm>
+      {items}
+    </ProForm>
   );
-}; 
+};
 
 `;
 
-export const AddPage = `
+export const AddPageTemplate = `
 import React, { useState } from 'react';
 import { message, Result, Button, Form } from 'antd';
 import moment from 'moment';
-import AdvertisementForm from './components/AdvertisementForm';
-import { advertisementService } from '@/services/server/advertisement';
+import { {{form}} } from './components/{{form}}';
 import { PageContainer } from '@ant-design/pro-components';
 import { Link } from '@umijs/max';
-import { PublishStatus } from '@/components/PublishStatus/config';
+import { {{handleAdd}}, {{gotoTable}} } from './helper';
 
 enum PageStatus {
   NORMAL = 0,
   SUCCESS = 1,
 }
 
-/**
- *
- * @param fields 添加节点
- * @returns
- */
-const handleAdd = async (fields: API.Advertisement) => {
-  const hide = message.loading('正在添加');
-  try {
-    const res = await advertisementService.add({ title: '', img: '', ...fields });
-    hide();
-    message.success('添加成功');
-    return res;
-  } catch (error) {
-    hide();
-    return false;
-  }
-};
-
-const AddAdvertisement: React.FC = () => {
+const {{add}}: React.FC = () => {
   const [status, setStatus] = useState(PageStatus.NORMAL);
   const [form] = Form.useForm();
   const refresh = () => {
@@ -401,17 +435,17 @@ const AddAdvertisement: React.FC = () => {
             <Button type="primary" key="add" onClick={refresh}>
               {'继续创建'}
             </Button>,
-            <Button key="list">
-              <Link to="/advertisement">{'返回列表'}</Link>
+            <Button key="list" onClick={ {{gotoTable}} }>
+               {'返回列表'}
             </Button>,
           ]}
         />
       )}
       {status === PageStatus.NORMAL && (
-        <AdvertisementForm
+        <{{form}}
           operationType="add"
-          onFinish={async (value: API.Advertisement) => {
-            const success = await handleAdd({
+          onFinish={async (value: {{entity}}) => {
+            const success = await {{handleAdd}}({
               ...value,
             });
             if (success) {
@@ -424,6 +458,91 @@ const AddAdvertisement: React.FC = () => {
   );
 };
 
-export default AddAdvertisement;
+export default {{add}};
+
+`;
+
+export const UpdatePageTemplate = `
+import React, { useEffect, useState } from 'react';
+import { message, Result, Button, Form, Skeleton, Tag } from 'antd';
+import { {{form}} } from './components/{{form}}';
+import { useParams, history, useSearchParams } from '@umijs/max';
+import { PageContainer } from '@ant-design/pro-components';
+import { {{handleUpdate}}, {{gotoTable}} } from './helper';
+import { {{service}} } from '../services/{{moduleName}}';
+
+enum PageStatus {
+  SKELETON = 0,
+  SUCCESS = 1,
+  ERROR = 2,
+}
+
+const {{update}}: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const [source, setSource] = useState<{{entity}}>();
+  const [status, setStatus] = useState(PageStatus.SKELETON);
+  const id = searchParams.get('id')!;
+
+  useEffect(() => {
+    setStatus(PageStatus.SKELETON);
+    {{service}}
+      .getOne({ id })
+      .then((res) => {
+        const dataSource = {
+          ...res,
+        };
+        setSource(dataSource);
+        setStatus(PageStatus.SUCCESS);
+      })
+      .catch(() => {
+        setStatus(PageStatus.ERROR);
+      });
+  }, []);
+
+  return (
+    <PageContainer
+      tags={
+        [
+          <Tag color="blue" key="id">
+            ID: {id}
+          </Tag>,
+        ]
+      }
+    >
+      {status === PageStatus.SUCCESS && (
+        <{{form}}
+          operationType="update"
+          dataSource={source}
+          onFinish={async (value: {{entity}}) => {
+            const success = await {{handleUpdate}}({
+              ...(source ?? {}),
+              ...value,
+              id: Number(id),
+            });
+
+            if (success) {
+              {{gotoTable}}();
+            }
+          }}
+        />
+      )}
+      {status === PageStatus.SKELETON && <Skeleton active />}
+      {status === PageStatus.ERROR && (
+        <Result
+          status="error"
+          title={'错误'}
+          extra={[
+            <Button type="primary" key="console" onClick={ {{gotoTable}} }>
+              返回
+            </Button>,
+            <Button key="buy">重试</Button>,
+          ]}
+        />
+      )}
+    </PageContainer>
+  );
+};
+
+export default {{update}};
 
 `;
