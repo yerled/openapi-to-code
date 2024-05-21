@@ -1,17 +1,20 @@
 import { OpenAPIObject } from 'openapi3-ts';
 import { ModuleItem, OpenapiDataParser, ParserResult } from '../parser';
 import Handlebars from 'handlebars';
+import _ from 'lodash';
 import { writeFile } from '../util';
 import './_handlebars';
 
 export interface IGeneratorConfig {
-  debug?: boolean;
+  _debug?: boolean;
   basePath?: string;
   namespace?: string;
 }
 
-const DEFAULT_BASE_PATH = './src/openapi';
-const DEFAULT_NAMESPACE = 'API';
+export const DEFAULT_BASE_CONFIG: IGeneratorConfig = {
+  basePath: './src-openapi',
+  namespace: 'API',
+};
 
 export class BaseGenerator {
   protected config: IGeneratorConfig;
@@ -19,11 +22,8 @@ export class BaseGenerator {
   protected data?: ParserResult;
 
   constructor(parser: OpenapiDataParser, config: IGeneratorConfig) {
+    this.config = _.merge(DEFAULT_BASE_CONFIG, config);
     this.data = parser.GetResult();
-    this.config = Object.assign(
-      { basePath: DEFAULT_BASE_PATH, namespace: DEFAULT_NAMESPACE } as IGeneratorConfig,
-      config,
-    );
   }
 
   protected genFile(params: {
@@ -44,6 +44,6 @@ export class BaseGenerator {
 
   // 生成代码
   public Generate() {
-    console.log('generate');
+    console.log('BaseGenerator Generate');
   }
 }

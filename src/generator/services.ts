@@ -18,7 +18,7 @@ const DEFAULT_SERVICE_CONFIG: ServiceGeneratorConfig = {
 };
 
 export class ServiceGenerator extends BaseGenerator {
-  config: ServiceGeneratorConfig = DEFAULT_SERVICE_CONFIG;
+  declare config: ServiceGeneratorConfig;
 
   constructor(parser: OpenapiDataParser, config: ServiceGeneratorConfig) {
     super(parser, _.merge(DEFAULT_SERVICE_CONFIG, config));
@@ -53,7 +53,7 @@ export class ServiceGenerator extends BaseGenerator {
         fileName: `${module.name}.ts`,
         template: controllerTemplate,
         params: {
-          debug: this.config.debug,
+          _debug: this.config._debug,
           namespace: this.config.namespace,
           controllerHeader: this.config.controllerHeader,
           requestOptionsType: this.config.requestOptionsType,

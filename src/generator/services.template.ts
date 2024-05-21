@@ -6,7 +6,7 @@ export const controllerTemplate = `
 {{{ controllerHeader }}}
 
 {{#each module.routes}}
-{{#if ../debug}}
+{{#if ../_debug}}
 /**
   params: {{{stringify params}}}
   body: {{{stringify body}}}

@@ -5,7 +5,7 @@ import {
   ProSchemaValueEnumMap,
 } from '@ant-design/pro-components';
 
-{{#if debug}}
+{{#if _debug}}
 /**
  entity: {{{stringify entity}}}
  */
@@ -122,7 +122,7 @@ const {{table}}: React.FC = () => {
         closable={false}
       >
         {currentRow?.id && (
-          <ProDescriptions<API.Coupon>
+          <ProDescriptions<Entity>
             column={2}
             title="{{moduleDesc}}详情"
             request={async () =>
@@ -159,6 +159,13 @@ import {
 } from '@ant-design/pro-components';
 import { FormItemRules } from '@/components/Form/config';
 
+{{#if _debug}}
+/**
+ namespace: {{{namespace}}}
+ addIn: {{{stringify addIn}}}
+ */
+{{/if}}
+
 type Entity = {{namespace}}.{{entity.name}}
 type FormProps = {
   title: string;
@@ -170,11 +177,6 @@ type FormProps = {
   dataSource?: Entity;
 };
 
-{{#if debug}}
-/**
- addIn: {{{stringify addIn}}}
- */
-{{/if}}
 export const {{form}}: React.FC<FormProps> = (props) => {
   const {
     dataSource,

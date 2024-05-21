@@ -15,7 +15,7 @@ const DEFAULT_PAGE_CONFIG: PageGeneratorConfig = {
 };
 
 export class PageGenerator extends BaseGenerator {
-  config: PageGeneratorConfig = DEFAULT_PAGE_CONFIG;
+  declare config: PageGeneratorConfig;
 
   constructor(parser: OpenapiDataParser, config: PageGeneratorConfig) {
     super(parser, _.merge(DEFAULT_PAGE_CONFIG, config));
@@ -47,7 +47,7 @@ export class PageGenerator extends BaseGenerator {
     const detailRoute = module.routes.find(isDetailAPI);
     const addRoute = module.routes.find(isAddAPI);
     const params = {
-      debug: this.config.debug,
+      _debug: this.config._debug,
       namespace: this.config.namespace,
       moduleName: module.name,
       moduleDesc: module.desc,
@@ -69,13 +69,13 @@ export class PageGenerator extends BaseGenerator {
       params,
     });
 
-    this._generateTableConfig(module, params);
+    this._generateTableConfig(params, module);
     if (addRoute) {
-      this._generateModalForm(module, params, addRoute);
+      this._generateModalForm(params, module, addRoute);
     }
   }
 
-  private _generateTableConfig(module: ModuleItem, params: Record<string, any>) {
+  private _generateTableConfig(params: Record<string, any>, module: ModuleItem) {
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder),
       fileName: `tableConfig.tsx`,
@@ -84,7 +84,7 @@ export class PageGenerator extends BaseGenerator {
     });
   }
 
-  private _generateModalForm(module: ModuleItem, params: Record<string, any>, route: RouteItem) {
+  private _generateModalForm(params: Record<string, any>, module: ModuleItem, route: RouteItem) {
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder, 'components'),
       fileName: `${params.form}.tsx`,

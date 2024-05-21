@@ -2,7 +2,7 @@ import path from 'path';
 import { generateCode } from '../src';
 
 generateCode({
-  debug: true,
+  _debug: true,
   schemaPath: 'http://localhost:3001/api-json',
   // schemaPath: path.resolve(
   //   __dirname,
