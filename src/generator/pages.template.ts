@@ -125,7 +125,7 @@ const {{table}}: React.FC = () => {
           key="update"
           size="small"
           onClick={() => {
-            {{#if ../isModalForm}} 
+            {{#if isModalForm}} 
             setCurrentRow(record);
             handleUpdateModalOpen(true); 
             {{else}} 
@@ -175,7 +175,7 @@ const {{table}}: React.FC = () => {
             type="primary"
             key="primary"
             onClick={() => {
-              {{#if ../isModalForm}}
+              {{#if isModalForm}}
               handleModalOpen(true);
               {{else}}
               {{gotoAdd}}();
