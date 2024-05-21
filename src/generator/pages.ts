@@ -46,6 +46,7 @@ export class PageGenerator extends BaseGenerator {
     const deleteRoute = module.routes.find(isDeleteAPI);
     const detailRoute = module.routes.find(isDetailAPI);
     const addRoute = module.routes.find(isAddAPI);
+    const updateRoute = module.routes.find(isUpdateAPI);
     const params = {
       _debug: this.config._debug,
       namespace: this.config.namespace,
@@ -60,7 +61,10 @@ export class PageGenerator extends BaseGenerator {
       deleteRoute,
       detailRoute,
       addRoute,
-      addIn: this._getTypeByName(getDtoFromType(addRoute?.body.type ?? '')),
+      addIn:
+        this._getTypeByName(getDtoFromType(addRoute?.body.type ?? '')) ||
+        this._getTypeByName(getDtoFromType(updateRoute?.body.type ?? '')),
+      updateRoute,
     };
     this.genFile({
       path: path.join(this.config.basePath, module.name, this.config.pageFolder),

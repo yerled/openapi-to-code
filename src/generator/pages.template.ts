@@ -17,7 +17,7 @@ export const {{columnMap}}: Record<keyof Entity, Item> = {
   ...({} as Record<keyof Entity, Item>),
   {{#each entity.props}}
   {{name}}: {
-    title: '{{desc}}',
+    title: '{{placeholder title desc}}',
     dataIndex: '{{name}}',
     valueType: '{{#if (eq type "number")}}digit{{else}}text{{/if}}',
     search: false,
@@ -44,8 +44,44 @@ import React, { useRef, useState } from 'react';
 import { buildProTableRequest } from '@/services/server/tools';
 import { {{columnMap}} } from './tableConfig';
 import { {{service}} } from '../services/{{moduleName}}';
+{{#if addRoute}}import { {{form}} } from './components/{{form}}';{{/if}}
 
 type Entity = {{namespace}}.{{entity.name}}
+
+{{#if addRoute}}
+const handleAdd = async (fields: Entity) => {
+  const hide = message.loading('正在添加');
+  try {
+    const res = await {{service}}.{{addRoute.name}}({
+      ...fields,
+    });
+    hide();
+    message.success('添加成功');
+    return res;
+  } catch (error) {
+    hide();
+    return false;
+  }
+};
+{{/if}}
+
+{{#if updateRoute}}
+const handleUpdate = async (fields: Entity) => {
+  const { ...params } = fields;
+
+  const hide = message.loading('正在配置');
+  try {
+    await {{service}}.{{addRoute.name}}(params);
+    hide();
+
+    message.success('配置成功');
+    return true;
+  } catch (error) {
+    hide();
+    return false;
+  }
+};
+{{/if}}
 
 const {{table}}: React.FC = () => {
   const [createModalOpen, handleModalOpen] = useState<boolean>(false);
@@ -65,6 +101,17 @@ const {{table}}: React.FC = () => {
       dataIndex: 'option',
       valueType: 'option',
       render: (_, record) => [
+        <Button
+          type="link"
+          key="detail"
+          size="small"
+          onClick={() => {
+            setCurrentRow(record);
+            setShowDetail(true);
+          }}
+        >
+          查看
+        </Button>,
         {{#if deleteRoute}}
         <Button
           key="delete"
@@ -99,6 +146,7 @@ const {{table}}: React.FC = () => {
         rowKey="id"
         search={searchConfig}
         toolBarRender={() => [
+          {{#if addRoute}}
           <Button
             type="primary"
             key="primary"
@@ -108,10 +156,52 @@ const {{table}}: React.FC = () => {
           >
             <PlusOutlined /> 新建
           </Button>,
+          {{/if}}
         ]}
         request={buildProTableRequest({{service}}.{{tableRoute.name}}, columns)}
         columns={columns}
       />
+      {{#if addRoute}}
+      <{{form}}
+        title="新建{{moduleDesc}}"
+        operationType="add"
+        open={createModalOpen}
+        onOpenChange={handleModalOpen}
+        onFinish={async (value) => {
+          const success = await handleAdd(value as Entity);
+          if (success) {
+            handleModalOpen(false);
+            if (actionRef.current) {
+              actionRef.current.reload();
+            }
+          }
+        }}
+      />
+      {{/if}}
+      {{#if updateRoute}}
+      <{{form}}
+        title="编辑{{moduleDesc}}"
+        operationType="update"
+        onFinish={async (value) => {
+          const success = await handleUpdate({ ...currentRow, ...value });
+          if (success) {
+            handleUpdateModalOpen(false);
+            setCurrentRow(undefined);
+            if (actionRef.current) {
+              actionRef.current.reload();
+            }
+          }
+        }}
+        onCancel={() => {
+          handleUpdateModalOpen(false);
+          if (!showDetail) {
+            setCurrentRow(undefined);
+          }
+        }}
+        open={updateModalOpen}
+        dataSource={currentRow}
+      />
+      {{/if}}
       <Drawer
         width={600}
         open={showDetail}
@@ -126,9 +216,13 @@ const {{table}}: React.FC = () => {
             column={2}
             title="{{moduleDesc}}详情"
             request={async () =>
+              {{#if detailRoute}}
               {{service}}.{{detailRoute.name}}({ id: String(currentRow.id) }).then((res) => {
                 return { data: res };
               })
+              {{else}}
+              ({ data: currentRow })
+              {{/if}}
             }
             columns={Object.values({{columnMap}})}
           />
@@ -217,9 +311,9 @@ export const {{form}}: React.FC<FormProps> = (props) => {
       {{#if (eq type "string")}}
       <ProFormText
         name="{{name}}"
-        label="{{desc}}"
+        label="{{placeholder title desc}}"
         rules={[
-          {{#if required}}{required: true},{{/if}}
+          {{#if required}}FormItemRules.required,{{/if}}
           {{#if maxLength}}FormItemRules.supportedCharacters, FormItemRules.maxLength{{maxLength}},{{/if}}
         ]}
       />
@@ -227,9 +321,9 @@ export const {{form}}: React.FC<FormProps> = (props) => {
       {{#if (eq type "number")}}
       <ProFormDigit
         name="{{name}}"
-        label="{{title}}"
+        label="{{placeholder title desc}}"
         rules={[
-          {{#if required}}{required: true},{{/if}}
+          {{#if required}}FormItemRules.required,{{/if}}
           {{#if max}}{max: {{max}} },{{/if}}
           {{#if min}}{min: {{min}} },{{/if}}
         ]}
